@@ -1,0 +1,45 @@
+/* App container */
+.App {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.map {
+    width: 600px; /* Adjust width as needed */
+    height: 400px; /* Adjust height as needed */
+}
+
+
+.histogram-container {
+    width: 50% /* Adjust the width as needed */
+}
+
+/* Controls */
+.controls {
+    margin-top: 20px;
+}
+
+    .controls select {
+        width: 100%;
+        padding: 5px;
+        font-size: 16px;
+    }
+
+/* Histogram bars */
+.bar {
+    fill: steelblue; /* Adjust histogram bar color */
+}
+
+/* Axis */
+.axis path,
+.axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    font-size: 12px; /* Adjust axis text size */
+}
