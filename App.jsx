@@ -10,8 +10,9 @@ const App = () => {
     const [features, setFeatures] = useState([]);
     const [keys, setKeys] = useState([]);
     const [selectedFeatureData, setSelectedFeatureData] = useState([]);
-    const [selectedClass, setSelectedClass] = useState(null); // Added state for selected class
+    const [selectedClass, setSelectedClass] = useState(null);
     const mapRef = useRef(null);
+    const geoJsonLayerRef = useRef(null);
 
     useEffect(() => {
         if (!mapRef.current) {
@@ -20,22 +21,21 @@ const App = () => {
             mapRef.current = mapInstance;
         }
 
-        // Load GeoJSON data and add as a GeoJSON layer to the map
         axios.get('ccgrid.json')
             .then(response => {
                 const geoJsonLayer = L.geoJSON(response.data, {
                     style: () => ({
-                        // Define default style for features
                         color: '#3388ff',
                         weight: 2,
                         opacity: 0.7,
                         fillOpacity: 0.2
                     }),
                     onEachFeature: (feature, layer) => {
-                        // Add popup or other interactions here if needed
                         layer.bindPopup(`FID: ${feature.properties.FID}`);
                     }
                 }).addTo(mapRef.current);
+
+                geoJsonLayerRef.current = geoJsonLayer;
             })
             .catch(error => {
                 console.error('Error loading GeoJSON data:', error);
@@ -47,14 +47,12 @@ const App = () => {
             try {
                 const response = await axios.get('ccgrid.json');
                 const features = response.data.features;
-
-                // Extract keys from the properties of the first feature
                 const properties = features[0].properties;
                 const keys = Object.keys(properties);
 
                 setFeatures(features);
                 setKeys(keys);
-                setSelectedDate(features[0].properties.FID); // Select the first date by default
+                setSelectedDate(features[0].properties.FID);
             } catch (error) {
                 console.error('Error fetching data:', error);
             }
@@ -68,7 +66,7 @@ const App = () => {
             const selectedFeature = features.find(feature => feature.properties.FID === selectedDate);
             if (selectedFeature) {
                 const histogramData = keys
-                    .filter(key => key !== 'FID') // Exclude 'FID'
+                    .filter(key => key !== 'FID')
                     .map(key => ({
                         label: key,
                         value: selectedFeature.properties[key]
@@ -78,43 +76,23 @@ const App = () => {
                 drawHistogram(histogramData);
             }
         }
-    }, [selectedDate, features, keys,]);
+    }, [selectedDate, features, keys]);
 
     useEffect(() => {
-        if (selectedClass !== null) {
-            highlightFeatures(selectedClass);
-        } else {
-            resetHighlight();
+        if (selectedClass !== null && selectedDate !== null) {
+            highlightFeature(selectedClass);
         }
-    }, [selectedClass]);
+    }, [selectedClass, selectedDate]);
 
     const handleDateChange = (event) => {
         setSelectedDate(parseInt(event.target.value));
     };
 
     const handleClassSelection = (selectedClass) => {
-        if (!selectedClass) return;
-
-        
-        const selectedFeatures = features.filter(feature => feature.properties.class === selectedClass);
-
-        if (selectedFeatures.length === 0) {
-            console.log('No features found for selected class:', selectedClass);
-            return;
-        }
-        mapRef.current.eachLayer(layer => {
-            if (layer.feature && selectedFeatures.includes(layer.feature)) {
-                layer.setStyle({ color: 'red', fillOpacity: 0.5 });
-            } else {
-                // Reset style for other features
-                layer.setStyle({ color: '#3388ff', fillOpacity: 0.2 });
-            }
-        });
+        setSelectedClass(selectedClass);
     };
 
-
     const drawHistogram = (data) => {
-        // Clear previous histogram
         d3.select('.histogram').selectAll('*').remove();
 
         const svgWidth = 600;
@@ -164,37 +142,45 @@ const App = () => {
             .attr('width', x.bandwidth())
             .attr('height', d => height - y(d.value))
             .style('fill', '#3388ff')
-            .on('click', (event, d) => handleClassSelection(d.label)); // Handle class selection on click
+            .on('click', (event, d) => handleClassSelection(d.label));
 
-        
         bars.on('mouseover', function () {
             d3.select(this).style('fill', 'orange');
         }).on('mouseout', function () {
             d3.select(this).style('fill', '#3388ff');
         });
     };
-    const highlightFeatures = (selectedClass) => {
-    
-        mapRef.current.eachLayer(layer => {
-            if (layer.feature && layer.feature.properties.class === selectedClass) {
-                
-                layer.setStyle({ fillColor: 'red', color: 'red', weight: 2 });
-            }
-        });
+
+    const highlightFeature = (selectedClass) => {
+        resetHighlight();
+        if (geoJsonLayerRef.current) {
+            geoJsonLayerRef.current.eachLayer(layer => {
+                if (layer.feature && layer.feature.properties.FID === selectedDate) {
+                    const featureValue = layer.feature.properties[selectedClass];
+                    if (featureValue !== undefined && featureValue !== 0) {
+                        layer.setStyle({ fillColor: 'red', color: 'red', weight: 2 });
+                    }
+                }
+            });
+        }
     };
 
     const resetHighlight = () => {
-       
-        mapRef.current.eachLayer(layer => {
-            if (layer.feature) {
-                layer.setStyle({ fillColor: '#3388ff', color: '#3388ff', weight: 1 });
-            }
-        });
+        if (geoJsonLayerRef.current) {
+            geoJsonLayerRef.current.eachLayer(layer => {
+                if (layer.feature) {
+                    layer.setStyle({ fillColor: '#3388ff', color: '#3388ff', weight: 2 });
+                }
+            });
+        }
     };
 
     return (
         <div className="App">
-            <div id="map" className="map"></div>
+            <div className="top-container">
+                <div id="map" className="map"></div>
+                <div className="histogram"></div>
+            </div>
             <div className="controls">
                 <label htmlFor="date">Select Date:</label>
                 <select id="date" onChange={handleDateChange} value={selectedDate || ''}>
@@ -205,10 +191,11 @@ const App = () => {
                     ))}
                 </select>
             </div>
-            <div className="histogram"></div>
         </div>
     );
 };
+
+export default App;
 
 export default App;
 
